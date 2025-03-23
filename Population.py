@@ -1,0 +1,242 @@
+import random
+import numpy as np
+import math
+from biome import *
+from collections import Counter
+
+maxi = 255
+dist = [-10, 10]
+direc = ["x", 'y']
+maxi = 255
+
+class pop:
+    def __init__(self, pos, x, y):
+        self.pos = pos
+        self.x = x
+        self.y = y
+        self.water = False
+        self.food = False
+        self.materials = False
+        self.blocked_directions = set()
+        self.generated_paths = set()
+    
+    def categorize_resource(self, resource):
+        if resource in ["water"]:
+            return "water"
+        elif resource in ["animals", "fish"]:
+            return "food"
+        elif resource in ["wood", "stone"]:
+            return "material"
+        return None
+    
+    def need_resource(self, resource_type):
+        if resource_type == "water":
+            return not self.water
+        elif resource_type == "food":
+            return not self.food
+        elif resource_type == "material":
+            return not self.materials
+        return False
+    
+    def mark_resource_found(self, resource_type):
+        if resource_type == "water":
+            self.water = True
+        elif resource_type == "food":
+            self.food = True
+        elif resource_type == "material":
+            self.materials = True
+    
+    def get_directions(self, count):
+        directions = []
+        if "up" not in self.blocked_directions:
+            directions.append({"pos": [self.x, self.y - count], "dir": "up"})
+        if "down" not in self.blocked_directions:
+            directions.append({"pos": [self.x, self.y + count], "dir": "down"})
+        if "left" not in self.blocked_directions:
+            directions.append({"pos": [self.x - count, self.y], "dir": "left"})
+        if "right" not in self.blocked_directions:
+            directions.append({"pos": [self.x + count, self.y], "dir": "right"})
+        return directions
+    
+    def get_adjacent_tiles(self, x, y):
+        return [
+            {"pos": [x - 1, y], "dir": "left"},
+            {"pos": [x + 1, y], "dir": "right"}
+        ]
+    
+    def get_next_tile(self, x, y, direction):
+        if direction == "up":
+            return x, y - 1
+        elif direction == "down":
+            return x, y + 1
+        elif direction == "left":
+            return x - 1, y
+        elif direction == "right":
+            return x + 1, y
+        return x, y
+        
+def createPops(grid, num):
+    pops = []
+    for i in range(num):
+        x = random.randint(0, maxi)
+        y = random.randint(0, maxi)
+        popul = pop(grid[x][y],x,y)
+        pops.append(popul)
+        
+    return pops
+
+def checkSur(grid, pop):
+    if pop.pos == "river" or pop.pos == "sea" or pop.pos == "lake":
+        dist1 = random.choice(dist)
+        direc1 = random.choice(direc)
+        if direc1 == "x":
+            pop.x = pop.x + dist1
+            if pop.x > maxi or pop.x < 0:
+                pop.x = pop.x + (dist1 * -2)
+            pop.pos = grid[pop.x][pop.y]
+            checkSur(grid, pop)
+        else:
+            pop.y = pop.y + dist1
+            if pop.y > maxi or pop.y < 0:
+                pop.y = pop.y + (dist1 * -2)
+            pop.pos = grid[pop.x][pop.y]
+            checkSur(grid, pop)
+
+def checkGroup(grid, pops):
+    for i in range(len(pops)):
+        checkSur(grid, pops[i])
+
+def settle(pops, grid):
+    for i in range(len(pops)):
+        grid[pops[i].x][pops[i].y] = "village"
+        pops[i].pos = grid[pops[i].x][pops[i].y]
+
+interPoints = {
+    "river": "water", 
+    "sea": "fish",
+    "coast": "fish",
+    "forest": "wood",
+    "Cforest": "wood",
+    "Iforest": "wood",
+    "rocky": "stone",
+    "Imountain": "stone",
+    "sabana": "animals"
+}
+
+def search(pop, grid):
+    count = 1
+    total_turns = 0
+    MAX_TURNS = 20
+    turns_without_resource = 0
+    
+    while (not (pop.water and pop.food and pop.materials)) and total_turns < MAX_TURNS:
+        directions = pop.get_directions(count)
+        found_resource_this_turn = False
+        
+        for direction in directions:
+            x, y = direction["pos"]
+            
+            # Skip if out of bounds
+            if x < 0 or x > maxi or y < 0 or y > maxi:
+                continue
+            
+            current_tile = grid[x][y]
+            
+            # Check if the tile contains a resource
+            if current_tile in interPoints:
+                resource = interPoints[current_tile]
+                resource_type = pop.categorize_resource(resource)
+                
+                if resource_type and pop.need_resource(resource_type):
+                    grid[x][y] = resource  # Change the tile to the resource name
+                    pop.mark_resource_found(resource_type)
+                    pop.blocked_directions.add(direction["dir"])
+                    found_resource_this_turn = True
+            
+            # Check if the tile is a path generated by another population
+            elif current_tile == "path" and (x, y) not in pop.generated_paths:
+                # Turn the origin village into a city
+                grid[pop.x][pop.y] = "city"
+                return  # Exit the search function
+            
+            # Mark the tile as a path if it's not a resource
+            if not grid[x][y] in interPoints.values():
+                grid[x][y] = "path"
+                pop.generated_paths.add((x, y))  # Track this path as generated by the current population
+        
+        # Check adjacent tiles to the current position
+        for direction in directions:
+            x, y = direction["pos"]
+            
+            # Check left and right adjacent tiles
+            for adj in pop.get_adjacent_tiles(x, y):
+                adj_x, adj_y = adj["pos"]
+                
+                # Skip if out of bounds
+                if adj_x < 0 or adj_x > maxi or adj_y < 0 or adj_y > maxi:
+                    continue
+                
+                adj_tile = grid[adj_x][adj_y]
+                
+                # Check if the adjacent tile contains a resource
+                if adj_tile in interPoints:
+                    resource = interPoints[adj_tile]
+                    resource_type = pop.categorize_resource(resource)
+                    
+                    if resource_type and pop.need_resource(resource_type):
+                        grid[adj_x][adj_y] = resource  # Change the tile to the resource name
+                        pop.mark_resource_found(resource_type)
+                        found_resource_this_turn = True
+        
+        # After 12 turns, check one more tile in the adjacent direction
+        if turns_without_resource >= 12:
+            for direction in directions:
+                x, y = direction["pos"]
+                
+                # Calculate the next tile in the same direction
+                next_x, next_y = pop.get_next_tile(x, y, direction["dir"])
+                
+                # Skip if out of bounds
+                if next_x < 0 or next_x > maxi or next_y < 0 or next_y > maxi:
+                    continue
+                
+                next_tile = grid[next_x][next_y]
+                
+                # Check if the next tile contains a resource
+                if next_tile in interPoints:
+                    resource = interPoints[next_tile]
+                    resource_type = pop.categorize_resource(resource)
+                    
+                    if resource_type and pop.need_resource(resource_type):
+                        grid[next_x][next_y] = resource  # Change the tile to the resource name
+                        pop.mark_resource_found(resource_type)
+                        found_resource_this_turn = True
+        
+        # Update counters
+        if not found_resource_this_turn:
+            turns_without_resource += 1
+        else:
+            turns_without_resource = 0
+            
+        count += 1
+        total_turns += 1
+    
+    # If the population unit fails to find all resources, turn the origin village into ruins
+    if not (pop.water and pop.food and pop.materials):
+        grid[pop.x][pop.y] = "ruins"
+    
+    # Exit the function
+    return
+
+def GameStart(grid):
+    maxi = 255
+    
+    pops = createPops(grid, 12)
+    
+    checkGroup(grid, pops)
+        
+    settle(pops, grid)
+        
+    for i in range(len(pops)):
+        search(pops[i], grid)
+

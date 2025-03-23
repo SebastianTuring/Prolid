@@ -1,0 +1,28 @@
+Hello, this is a small textual guide on how to use Prolid.
+=============================================================
+First of all, if you do not know Python you can still use it but knowing how to code and the 
+specific syntaxy of Python will be helpful especially if you want more customisation. 
+With that out of the way, you need to have Python installed on your computer and 
+simply run "main.py". This will run the program as is, but if you want to customise 
+your maps further then the information below will be valuable to you
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+// Customisation
+The easiest way to customise the generated map is to change the contents of "custom.py" 
+if the only changes you want are for the names or colours to change then you only have to
+edit this file and modify color_map from "biome.py". In custom.py you can decide which elements
+ you want to change by mapping the default element to whatever you want inside the "changes" dictionary
+ and you also have to add that desired element to color_map and assign it the colour you prefer.
+ Finally, you just have to uncomment the applyChanges function and the third seeMap in "main.py"
+ (Currently, applyChanges turns everything white except for rivers to visualise them closely)
+
+ // Further customisation
+ biomeMap, biomeMapEnhance, biomeMapAdd, biomeMapDry, biomeMapEnhance2 can all be modified by changing
+ the arguments they take, more prob_island means it is more likely for a sea tile to turn into land, 
+ a higher prob_flood means land tiles are more likely to become sea tiles, prob_island_surge is the 
+ probability of a sea tile turning into land when it is surrounded by sea tiles. The iterations on
+ biomeMapSmooth determines the number of smoothing operations to perform.
+ Additionally, inside both biomeMapZone and biomeMapZone1, there are certain probability values you can 
+ change however you like in case you want a certain zone to be more or less present in the final map.
+ The code is well-commented so if you want to further modify it reading the code will be enough to 
+ understand it.
